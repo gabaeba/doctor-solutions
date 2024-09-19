@@ -28,4 +28,5 @@ export default defineConfig({
     }),
     react(),
   ],
+  base: "/doctor-solutions",
 });
