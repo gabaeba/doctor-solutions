@@ -15,26 +15,13 @@ interface Surgery {
 const XMLToExcelConverter: React.FC = () => {
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [partialData, setPartialData] = useState<Surgery[]>([]);
-
-  //   const addXmlDeclaration = (xmlString: string): string => {
-  //     // If the string starts with an XML declaration, replace it with one that includes encoding
-  //     if (xmlString.startsWith("<?xml")) {
-  //       // Replace existing XML declaration with the new one including UTF-8 encoding
-  //       return xmlString.replace(
-  //         /<\?xml version="1.0"[^>]*\?>/,
-  //         '<?xml version="1.0" encoding="UTF-8"?>',
-  //       );
-  //     }
-  //     // If no declaration, add the UTF-8 encoding declaration at the top
-  //     return '<?xml version="1.0" encoding="UTF-8"?>\n' + xmlString;
-  //   };
+  const [conversionStatus, setConversionStatus] = useState<string | null>(null);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
       setFile(event.target.files[0]);
       setError(null);
-      setPartialData([]);
+      setConversionStatus(null);
     }
   };
 
@@ -42,7 +29,6 @@ const XMLToExcelConverter: React.FC = () => {
     if (xmlString.charCodeAt(0) === 0xfeff) {
       xmlString = xmlString.slice(1);
     }
-    // Remove problematic $ characters from tag names
     return xmlString.replace(/<(\/?)\w+\$/g, "<$1");
   };
 
@@ -116,7 +102,7 @@ const XMLToExcelConverter: React.FC = () => {
       processElement(xmlDoc.documentElement);
     } catch (err) {
       console.error("Erro durante o processamento do XML:", err);
-      setError(
+      throw new Error(
         `Erro durante o processamento do XML: ${(err as Error).message}`
       );
     }
@@ -124,43 +110,66 @@ const XMLToExcelConverter: React.FC = () => {
     return surgeries;
   };
 
-  const convertToExcel = (data: Surgery[]) => {
+  const parseBrazilianDate = (dateString: string): Date => {
+    const [day, month, year] = dateString.split("/").map(Number);
+    return new Date(2000 + year, month - 1, day);
+  };
+
+  const groupSurgeriesByMonth = (
+    surgeries: Surgery[]
+  ): Record<string, Surgery[]> => {
+    return surgeries.reduce((acc, surgery) => {
+      const date = parseBrazilianDate(surgery["Data Realização"]);
+      const monthKey = `${date.getFullYear()}-${(date.getMonth() + 1)
+        .toString()
+        .padStart(2, "0")}`;
+      if (!acc[monthKey]) {
+        acc[monthKey] = [];
+      }
+      acc[monthKey].push(surgery);
+      return acc;
+    }, {} as Record<string, Surgery[]>);
+  };
+
+  const convertToExcel = (data: Surgery[], monthKey: string) => {
     const worksheet = XLSX.utils.json_to_sheet(data);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Cirurgias");
-    XLSX.writeFile(workbook, "cirurgias.xlsx", {
+    XLSX.writeFile(workbook, `cirurgias_${monthKey}.xlsx`, {
       bookType: "xlsx",
       type: "binary",
     });
   };
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!file) {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const xmlString = e.target?.result as string;
-        const encodedXml = iconv.decode(Buffer.from(xmlString), "ISO-8859-1");
-        const parsedData = parseXML(encodedXml);
-        setPartialData(parsedData);
-        if (parsedData.length > 0) {
-          convertToExcel(parsedData);
-          setError(null);
-        } else {
-          setError("Nenhum dado valido encontrado no arquivo XML.");
-        }
-      } catch (err) {
-        setError(`Erro ao processar o arquivo: ${(err as Error).message}`);
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const xmlString = iconv.decode(Buffer.from(arrayBuffer), "ISO-8859-1");
+      const parsedData = parseXML(xmlString);
+
+      if (parsedData.length > 0) {
+        const groupedSurgeries = groupSurgeriesByMonth(parsedData);
+        const months = Object.keys(groupedSurgeries);
+
+        months.forEach((month) => {
+          convertToExcel(groupedSurgeries[month], month);
+        });
+
+        setConversionStatus(
+          `Processados ${parsedData.length} registros. Criados ${months.length} arquivos Excel.`
+        );
+        setError(null);
+      } else {
+        setError("Nenhum dado válido encontrado no arquivo XML.");
       }
-    };
-    reader.onerror = () => {
-      setError("Erro ao ler o arquivo.");
-    };
-    reader.readAsArrayBuffer(file);
+    } catch (err) {
+      setError(`Erro ao processar o arquivo: ${(err as Error).message}`);
+    }
   };
 
   return (
@@ -173,7 +182,7 @@ const XMLToExcelConverter: React.FC = () => {
           color: "#000",
         }}
       >
-        XML para Excel
+        XML para Excel (Mensal)
       </h1>
       <form
         onSubmit={handleSubmit}
@@ -220,15 +229,15 @@ const XMLToExcelConverter: React.FC = () => {
             boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
           }}
         >
-          Converter para Excel
+          Converter para Excel (Mensal)
         </button>
       </form>
       {error && (
         <div style={{ marginTop: "1rem", color: "#DC2626" }}>{error}</div>
       )}
-      {partialData.length > 0 && (
+      {conversionStatus && (
         <div style={{ marginTop: "1rem", color: "#16A34A" }}>
-          {partialData.length} registros processados.
+          {conversionStatus}
         </div>
       )}
     </div>
