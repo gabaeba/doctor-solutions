@@ -4,9 +4,8 @@ import iconv from "iconv-lite";
 
 interface Surgery {
   "Data Realização": string;
-  "Aviso Cirurgia": string;
+  "Código Atendimento": string;
   Cirurgia: string;
-  "Código Paciente": string;
   "Nome Paciente": string;
   Anestesista: string;
   "Tipo Anestesia": string;
@@ -69,16 +68,13 @@ const XMLToExcelConverter: React.FC = () => {
               if (anesthesiaType !== "LOCAL") {
                 surgeries.push({
                   "Data Realização": date,
-                  "Aviso Cirurgia":
-                    patientElement.getElementsByTagName("CD_AVISO_CIRURGIA")[0]
+                  "Código Atendimento":
+                    patientElement.getElementsByTagName("CD_ATENDIMENTO")[0]
                       ?.textContent || "",
                   Cirurgia:
                     surgeryElement.getElementsByTagName(
-                      "DECODE_NVL_CIR_AVI_DS_NPADRONI"
+                      "DECODE_NVL_CIR_AVI_DS_NPADRONI",
                     )[0]?.textContent || "",
-                  "Código Paciente":
-                    patientElement.getElementsByTagName("CD_PACIENTE")[0]
-                      ?.textContent || "",
                   "Nome Paciente":
                     patientElement.getElementsByTagName("NM_PACIENTE")[0]
                       ?.textContent || "",
@@ -103,7 +99,7 @@ const XMLToExcelConverter: React.FC = () => {
     } catch (err) {
       console.error("Erro durante o processamento do XML:", err);
       throw new Error(
-        `Erro durante o processamento do XML: ${(err as Error).message}`
+        `Erro durante o processamento do XML: ${(err as Error).message}`,
       );
     }
 
@@ -116,19 +112,22 @@ const XMLToExcelConverter: React.FC = () => {
   };
 
   const groupSurgeriesByMonth = (
-    surgeries: Surgery[]
+    surgeries: Surgery[],
   ): Record<string, Surgery[]> => {
-    return surgeries.reduce((acc, surgery) => {
-      const date = parseBrazilianDate(surgery["Data Realização"]);
-      const monthKey = `${date.getFullYear()}-${(date.getMonth() + 1)
-        .toString()
-        .padStart(2, "0")}`;
-      if (!acc[monthKey]) {
-        acc[monthKey] = [];
-      }
-      acc[monthKey].push(surgery);
-      return acc;
-    }, {} as Record<string, Surgery[]>);
+    return surgeries.reduce(
+      (acc, surgery) => {
+        const date = parseBrazilianDate(surgery["Data Realização"]);
+        const monthKey = `${date.getFullYear()}-${(date.getMonth() + 1)
+          .toString()
+          .padStart(2, "0")}`;
+        if (!acc[monthKey]) {
+          acc[monthKey] = [];
+        }
+        acc[monthKey].push(surgery);
+        return acc;
+      },
+      {} as Record<string, Surgery[]>,
+    );
   };
 
   const convertToExcel = (data: Surgery[], monthKey: string) => {
@@ -161,7 +160,7 @@ const XMLToExcelConverter: React.FC = () => {
         });
 
         setConversionStatus(
-          `Processados ${parsedData.length} registros. Criados ${months.length} arquivos Excel.`
+          `Processados ${parsedData.length} registros. Criados ${months.length} arquivos Excel.`,
         );
         setError(null);
       } else {
