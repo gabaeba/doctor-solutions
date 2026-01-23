@@ -5,10 +5,12 @@ import iconv from "iconv-lite";
 interface Surgery {
   "Data Realização": string;
   "Código Atendimento": string;
-  Cirurgia: string;
+  "Código Cirurgia": string;
+  Carteirinha: number;
   "Nome Paciente": string;
-  Anestesista: string;
-  "Tipo Anestesia": string;
+  Quantidade: number;
+  "": string;
+  Cirurgia: string;
 }
 
 const XMLToExcelConverter: React.FC = () => {
@@ -61,29 +63,23 @@ const XMLToExcelConverter: React.FC = () => {
             const surgeryElement = gSurgeryElements[h];
 
             if (surgeryElement) {
-              const anesthesiaType =
-                surgeryElement.getElementsByTagName("DS_TIP_ANEST")[0]
-                  ?.textContent;
-
-              if (anesthesiaType !== "LOCAL") {
-                surgeries.push({
-                  "Data Realização": date,
-                  "Código Atendimento":
-                    patientElement.getElementsByTagName("CD_ATENDIMENTO")[0]
-                      ?.textContent || "",
-                  Cirurgia:
-                    surgeryElement.getElementsByTagName(
-                      "DECODE_NVL_CIR_AVI_DS_NPADRONI",
-                    )[0]?.textContent || "",
-                  "Nome Paciente":
-                    patientElement.getElementsByTagName("NM_PACIENTE")[0]
-                      ?.textContent || "",
-                  Anestesista:
-                    surgeryElement.getElementsByTagName("CF_NM_ANESTESISTA")[0]
-                      ?.textContent || "",
-                  "Tipo Anestesia": anesthesiaType || "",
-                });
-              }
+              surgeries.push({
+                "Data Realização": date,
+                "Código Atendimento":
+                  patientElement.getElementsByTagName("CD_ATENDIMENTO")[0]
+                    ?.textContent || "",
+                "Código Cirurgia": "",
+                Carteirinha: 0,
+                "Nome Paciente":
+                  patientElement.getElementsByTagName("NM_PACIENTE")[0]
+                    ?.textContent || "",
+                Quantidade: 1,
+                "": "",
+                Cirurgia:
+                  surgeryElement.getElementsByTagName(
+                    "DECODE_NVL_CIR_AVI_DS_NPADRONI",
+                  )[0]?.textContent || "",
+              });
             }
           }
         }
@@ -181,7 +177,7 @@ const XMLToExcelConverter: React.FC = () => {
           color: "#000",
         }}
       >
-        XML para Excel (Mensal)
+        XML para Excel (Mensal) - Cirurgias SUS
       </h1>
       <form
         onSubmit={handleSubmit}
